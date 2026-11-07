@@ -1,66 +1,208 @@
-import pandas as pd
-import folium
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>지구과학 학습지 - 지구의 자전과 공전</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 커스텀 파스텔 톤 색상 */
+    .bg-pastel-bg { background-color: #f8fafc; } /* slate-50 */
+    .text-pastel-indigo { color: #6366f1; } /* indigo-500 */
+    .bg-pastel-indigo { background-color: #818cf8; } /* indigo-400 */
+    .bg-pastel-indigo-hover { background-color: #6366f1; }
+  </style>
+</head>
+<body class="bg-pastel-bg font-sans text-slate-700 min-h-screen p-4 flex justify-center items-center">
 
-# 1. 데이터 로드 (엑셀 파일 구조에 맞춰 컬럼명을 확인하세요)
-# 예시 컬럼: '지역명', '연도', '평균기온', '위도', '경도'
-df = pd.read_excel('data.xls')
-
-# 2. 1973~2025년 데이터 추출
-df_filtered = df[(df['연도'] >= 1973) & (df['연도'] <= 2025)]
-
-# 1973년과 2025년 데이터가 모두 있는 지역 선정
-regions_1973 = set(df_filtered[df_filtered['연도'] == 1973]['지역명'])
-regions_2025 = set(df_filtered[df_filtered['연도'] == 2025]['지역명'])
-target_regions = list(regions_1973.intersection(regions_2025))
-
-# 3. 지역별 기온 변화량 계산
-result_list = []
-for region in target_regions:
-    t_1973 = df_filtered[(df_filtered['지역명'] == region) & (df_filtered['연도'] == 1973)]['평균기온'].values[0]
-    t_2025 = df_filtered[(df_filtered['지역명'] == region) & (df_filtered['연도'] == 2025)]['평균기온'].values[0]
+  <div class="max-w-3xl w-full bg-white rounded-2xl shadow-lg p-8">
     
-    # 좌표 정보 가져오기
-    lat = df_filtered[df_filtered['지역명'] == region]['위도'].iloc[0]
-    lon = df_filtered[df_filtered['지역명'] == region]['경도'].iloc[0]
+    <header class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-pastel-indigo mb-2">지구의 자전과 공전</h1>
+      <p class="text-slate-500">배운 내용을 떠올리며 아래의 질문에 답해봅시다.</p>
+    </header>
+
+    <form id="worksheetForm" class="space-y-8">
+      
+      <!-- 학생 정보 입력란 -->
+      <section class="bg-slate-100 p-5 rounded-xl">
+        <h2 class="text-lg font-semibold mb-4 text-slate-700">학생 정보</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">학년</label>
+            <input type="number" id="grade" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">반</label>
+            <input type="number" id="classNum" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">번호</label>
+            <input type="number" id="studentNum" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">이름</label>
+            <input type="text" id="studentName" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+          </div>
+        </div>
+      </section>
+
+      <!-- 선택형 3문제 -->
+      <section class="space-y-6">
+        <h2 class="text-xl font-bold text-pastel-indigo border-b pb-2">선택형 문제</h2>
+        
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <p class="font-medium mb-3">1. 지구의 자전 방향으로 올바른 것은 무엇인가요?</p>
+          <div class="space-y-2 text-slate-600">
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q1" value="동에서 서" class="text-indigo-500" required><span>① 동에서 서</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q1" value="서에서 동" class="text-indigo-500"><span>② 서에서 동</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q1" value="북에서 남" class="text-indigo-500"><span>③ 북에서 남</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q1" value="남에서 북" class="text-indigo-500"><span>④ 남에서 북</span></label>
+          </div>
+        </div>
+
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <p class="font-medium mb-3">2. 지구가 태양을 한 바퀴 도는 공전 주기는 얼마인가요?</p>
+          <div class="space-y-2 text-slate-600">
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q2" value="하루(24시간)" class="text-indigo-500" required><span>① 하루 (24시간)</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q2" value="일주일" class="text-indigo-500"><span>② 일주일</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q2" value="한 달" class="text-indigo-500"><span>③ 한 달</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q2" value="1년" class="text-indigo-500"><span>④ 1년</span></label>
+          </div>
+        </div>
+
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <p class="font-medium mb-3">3. 지구의 공전과 자전축의 기울기로 인해 나타나는 현상은 무엇인가요?</p>
+          <div class="space-y-2 text-slate-600">
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q3" value="낮과 밤의 변화" class="text-indigo-500" required><span>① 낮과 밤의 반복</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q3" value="계절의 변화" class="text-indigo-500"><span>② 계절의 변화</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q3" value="밀물과 썰물" class="text-indigo-500"><span>③ 밀물과 썰물</span></label>
+            <label class="flex items-center space-x-2 cursor-pointer"><input type="radio" name="q3" value="화산 폭발" class="text-indigo-500"><span>④ 화산 폭발</span></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- 단답형 2문제 -->
+      <section class="space-y-6">
+        <h2 class="text-xl font-bold text-pastel-indigo border-b pb-2">단답형 문제</h2>
+        
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <label class="block font-medium mb-2" for="q4">4. 지구가 자전축을 중심으로 하루에 한 바퀴씩 도는 운동을 무엇이라고 합니까?</label>
+          <input type="text" id="q4" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="정답을 입력하세요" required>
+        </div>
+
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <label class="block font-medium mb-2" for="q5">5. 지구가 태양을 중심으로 1년에 한 바퀴씩 도는 운동을 무엇이라고 합니까?</label>
+          <input type="text" id="q5" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="정답을 입력하세요" required>
+        </div>
+      </section>
+
+      <!-- 제출 버튼 -->
+      <div class="text-center pt-4">
+        <button type="submit" id="submitBtn" class="bg-pastel-indigo hover:bg-pastel-indigo-hover text-white font-bold py-3 px-10 rounded-full shadow-md transition duration-300 w-full md:w-auto">
+          선생님께 제출하기
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- 결과 모달 창 -->
+  <div id="resultModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 hidden z-50">
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+      <div id="modalIcon" class="text-5xl mb-4 text-green-500">🎉</div>
+      <h3 id="modalTitle" class="text-2xl font-bold text-slate-800 mb-2">제출 완료!</h3>
+      <p id="modalMessage" class="text-slate-600 mb-6">학습지가 성공적으로 제출되었습니다.<br>수고하셨습니다!</p>
+      <button id="closeModalBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-6 rounded-full transition duration-300">
+        닫기
+      </button>
+    </div>
+  </div>
+
+  <!-- Firebase 및 제출 로직 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAqAg8uhcb6YvCtbb83yJHdhtd7R6Ym1pw",
+      authDomain: "earthscience-e13b6.firebaseapp.com",
+      projectId: "earthscience-e13b6",
+      storageBucket: "earthscience-e13b6.firebasestorage.app",
+      messagingSenderId: "489214590474",
+      appId: "1:489214590474:web:78f2c2953f4c51162c69f3",
+      measurementId: "G-RFXFC3DF42"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const form = document.getElementById('worksheetForm');
+    const modal = document.getElementById('resultModal');
+    const submitBtn = document.getElementById('submitBtn');
     
-    temp_diff = t_2025 - t_1973
-    result_list.append({
-        '지역명': region,
-        '위도': lat,
-        '경도': lon,
-        '기온변화량': temp_diff
-    })
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault(); // 기본 폼 제출 방지
 
-res_df = pd.DataFrame(result_list)
+      // 버튼 상태 변경 (로딩)
+      const originalBtnText = submitBtn.innerText;
+      submitBtn.innerText = "제출 중...";
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
 
-# 4. 색상 정규화 (변화량에 따라 연한 빨강 ~ 진한 빨강 매핑)
-norm = mcolors.Normalize(vmin=res_df['기온변화량'].min(), vmax=res_df['기온변화량'].max())
-cmap = plt.cm.Reds
+      // 폼 데이터 수집
+      const q1Element = document.querySelector('input[name="q1"]:checked');
+      const q2Element = document.querySelector('input[name="q2"]:checked');
+      const q3Element = document.querySelector('input[name="q3"]:checked');
 
-def get_color(val):
-    # RGBA -> HEX 변환 (Hex 형식으로 Folium에 적용)
-    rgba = cmap(norm(val))
-    return mcolors.to_hex(rgba)
+      const worksheetData = {
+        student: {
+          grade: document.getElementById('grade').value,
+          class: document.getElementById('classNum').value,
+          number: document.getElementById('studentNum').value,
+          name: document.getElementById('studentName').value,
+        },
+        answers: {
+          q1: q1Element ? q1Element.value : "",
+          q2: q2Element ? q2Element.value : "",
+          q3: q3Element ? q3Element.value : "",
+          q4: document.getElementById('q4').value,
+          q5: document.getElementById('q5').value,
+        },
+        submittedAt: serverTimestamp() // 파이어베이스 서버 시간 기준 제출 일시
+      };
 
-# 5. 지도 생성 및 마커 추가 (대한민국 중심 좌표 기준)
-m = folium.Map(location=[36.5, 127.5], zoom_start=7, tiles='cartodbpositron')
+      try {
+        // submissions 컬렉션에 데이터 추가
+        await addDoc(collection(db, "submissions"), worksheetData);
+        
+        // 성공 모달 띄우기
+        showModal("🎉", "제출 완료!", "학습지가 성공적으로 제출되었습니다.<br>참 잘했어요!", "text-green-500");
+        form.reset(); // 제출 완료 후 양식 비우기
+      } catch (error) {
+        console.error("Error adding document: ", error);
+        // 실패 모달 띄우기
+        showModal("🚨", "제출 실패", "오류가 발생했습니다. 권한 설정이나 네트워크 상태를 확인해주세요.", "text-red-500");
+      } finally {
+        // 버튼 상태 복구
+        submitBtn.innerText = originalBtnText;
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      }
+    });
 
-for _, row in res_df.iterrows():
-    color_hex = get_color(row['기온변화량'])
-    
-    folium.CircleMarker(
-        location=[row['위도'], row['경도']],
-        radius=9,
-        popup=f"<b>{row['지역명']}</b><br>기온 변화량: +{row['기온변화량']:.2f}℃",
-        tooltip=f"{row['지역명']}: +{row['기온변화량']:.2f}℃",
-        color='#888888',       # 테두리 색상
-        weight=1,
-        fill=True,
-        fill_color=color_hex,  # 상승량에 따른 빨간색 농도
-        fill_opacity=0.85
-    ).add_to(m)
+    // 모달 제어 함수
+    function showModal(icon, title, message, iconColorClass) {
+      document.getElementById('modalIcon').innerText = icon;
+      document.getElementById('modalIcon').className = `text-5xl mb-4 ${iconColorClass}`;
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalMessage').innerHTML = message;
+      modal.classList.remove('hidden');
+    }
 
-# 6. HTML 파일로 저장
-m.save('temperature_change_map.html')
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>
