@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>중학교 성적 예상 등수 계산기</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-12">
+
+  <!-- Header -->
+  <header class="bg-indigo-600 text-white py-8 px-4 shadow-lg mb-8">
+    <div class="max-w-4xl mx-auto">
+      <h1 class="text-2xl md:text-3xl font-bold mb-2">📊 정규분포 기반 예상 등수 계산기</h1>
+      <p class="text-indigo-100 text-sm md:text-base">과목별 평균, 내 점수, 표준편차를 기반으로 상위 백분위와 석차를 시뮬레이션합니다.</p>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 gap-6 grid grid-cols-1">
+    
+    <!-- Global Settings Card -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <span>⚙️</span> 기본 환경 설정
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-semibold text-slate-600 mb-1">전체 수강 인원 (명)</label>
+          <input type="number" id="totalStudents" value="142" min="1" 
+                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition font-semibold text-slate-700"
+                 oninput="calculateAll()">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-sm font-semibold text-slate-600">글로벌 일괄 표준편차 (&sigma;)</label>
+            <span id="sdValue" class="text-sm font-bold text-indigo-600">18</span>
+          </div>
+          <input type="range" id="globalSD" min="8" max="28" value="18" step="1" 
+                 class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mt-3"
+                 oninput="updateSDLabel(); calculateAll();">
+          <div class="flex justify-between text-xs text-slate-400 mt-1">
+            <span>8 (밀집/고교)</span>
+            <span>18 (중학 평균)</span>
+            <span>28 (양극화 심함)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subject Table / Inputs -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <span>📚</span> 과목별 점수 입력
+        </h2>
+        <button onclick="addSubjectRow()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-semibold rounded-lg transition">
+          + 과목 추가
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50">
+              <th class="py-3 px-3">과목명</th>
+              <th class="py-3 px-3">내 점수</th>
+              <th class="py-3 px-3">과목 평균</th>
+              <th class="py-3 px-3">개별 표준편차</th>
+              <th class="py-3 px-3 text-center">삭제</th>
+            </tr>
+          </thead>
+          <tbody id="subjectTableBody" class="divide-y divide-slate-100 text-sm">
+            <!-- Dynamic Rows Go Here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <span>🏆</span> 예상 석차 산출 결과
+      </h2>
+      <div id="resultsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Dynamic Result Cards -->
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // 예시 데이터: 모든 과목 내 점수 85점, 과목 평균 70점 설정
+    let defaultSubjects = [
+      { name: "과학", score: 85, mean: 70, sd: 18 },
+      { name: "사회", score: 85, mean: 70, sd: 18 },
+      { name: "국어", score: 85, mean: 70, sd: 18 },
+      { name: "영어", score: 85, mean: 70, sd: 20 },
+      { name: "수학", score: 85, mean: 70, sd: 22 }
+    ];
+
+    // Standard Normal CDF approximation (Abramowitz and Stegun)
+    function normalCDF(z) {
+      if (z < -6) return 0;
+      if (z > 6) return 1;
+      const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+      const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+      const sign = (z < 0) ? -1 : 1;
+      const x = Math.abs(z) / Math.SQRT2;
+      const t = 1.0 / (1.0 + p * x);
+      const erf = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+      return 0.5 * (1.0 + sign * erf);
+    }
+
+    function updateSDLabel() {
+      const globalSD = document.getElementById('globalSD').value;
+      document.getElementById('sdValue').innerText = globalSD;
+      
+      const sdInputs = document.querySelectorAll('.subject-sd');
+      sdInputs.forEach(input => input.value = globalSD);
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('subjectTableBody');
+      tbody.innerHTML = '';
+
+      defaultSubjects.forEach((sub, index) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-slate-50 transition';
+        row.innerHTML = `
+          <td class="py-2.5 px-3">
+            <input type="text" value="${sub.name}" class="subject-name w-full px-2 py-1 border rounded-md text-slate-700 font-medium" oninput="calculateAll()">
+          </td>
+          <td class="py-2.5 px-3">
+            <input type="number" value="${sub.score}" class="subject-score w-20 px-2 py-1 border rounded-md font-semibold text-indigo-600" oninput="calculateAll()">
+          </td>
+          <td class="py-2.5 px-3">
+            <input type="number" step="0.1" value="${sub.mean}" class="subject-mean w-20 px-2 py-1 border rounded-md text-slate-600" oninput="calculateAll()">
+          </td>
+          <td class="py-2.5 px-3">
+            <input type="number" value="${sub.sd}" class="subject-sd w-20 px-2 py-1 border rounded-md text-slate-600" oninput="calculateAll()">
+          </td>
+          <td class="py-2.5 px-3 text-center">
+            <button onclick="removeSubjectRow(this)" class="text-rose-500 hover:text-rose-700 font-bold px-2">✕</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function addSubjectRow() {
+      const globalSD = document.getElementById('globalSD').value;
+      defaultSubjects.push({ name: "새 과목", score: 85, mean: 70, sd: parseInt(globalSD) });
+      renderTable();
+      calculateAll();
+    }
+
+    function removeSubjectRow(btn) {
+      const row = btn.closest('tr');
+      const index = Array.from(row.parentNode.children).indexOf(row);
+      defaultSubjects.splice(index, 1);
+      renderTable();
+      calculateAll();
+    }
+
+    function calculateAll() {
+      const N = parseFloat(document.getElementById('totalStudents').value) || 1;
+      const rows = document.querySelectorAll('#subjectTableBody tr');
+      const resultsContainer = document.getElementById('resultsContainer');
+      resultsContainer.innerHTML = '';
+
+      rows.forEach(row => {
+        const name = row.querySelector('.subject-name').value;
+        const score = parseFloat(row.querySelector('.subject-score').value) || 0;
+        const mean = parseFloat(row.querySelector('.subject-mean').value) || 0;
+        const sd = parseFloat(row.querySelector('.subject-sd').value) || 1;
+
+        const diff = score - mean;
+        const z = diff / sd;
+        const cdf = normalCDF(z);
+        const upperPercent = (1 - cdf) * 100;
+        let rank = Math.round(((1 - cdf) * N + 1) * 10) / 10;
+        if (rank < 1) rank = 1;
+        if (rank > N) rank = N;
+
+        let badgeBg = "bg-slate-100 text-slate-700";
+        if (upperPercent <= 10) badgeBg = "bg-amber-100 text-amber-800 border-amber-300";
+        else if (upperPercent <= 30) badgeBg = "bg-indigo-100 text-indigo-800 border-indigo-300";
+
+        const card = document.createElement('div');
+        card.className = "p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between shadow-sm";
+        card.innerHTML = `
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="font-bold text-slate-800 text-base">${name}</h3>
+              <span class="text-xs px-2.5 py-1 rounded-full font-semibold border ${badgeBg}">
+                상위 ${upperPercent.toFixed(1)}%
+              </span>
+            </div>
+            <div class="text-sm text-slate-600 space-y-1 mb-3">
+              <div class="flex justify-between">
+                <span>점수 / 평균:</span>
+                <span class="font-semibold text-slate-700">${score}점 / ${mean}점 (${diff >= 0 ? '+' : ''}${diff.toFixed(1)})</span>
+              </div>
+              <div class="flex justify-between">
+                <span>적용 표준편차 (&sigma;):</span>
+                <span class="font-medium text-slate-600">${sd}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-200 flex justify-between items-end">
+            <span class="text-xs text-slate-400">전체 ${N}명 기준</span>
+            <div class="text-right">
+              <span class="text-xs text-slate-500">예상 석차</span>
+              <div class="text-xl font-extrabold text-indigo-600">약 ${rank} 등</div>
+            </div>
+          </div>
+        `;
+        resultsContainer.appendChild(card);
+      });
+    }
+
+    // Initialize
+    window.onload = () => {
+      renderTable();
+      calculateAll();
+    };
+  </script>
+</body>
+</html>

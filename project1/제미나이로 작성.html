@@ -1,0 +1,66 @@
+import pandas as pd
+import folium
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+# 1. 데이터 로드 (엑셀 파일 구조에 맞춰 컬럼명을 확인하세요)
+# 예시 컬럼: '지역명', '연도', '평균기온', '위도', '경도'
+df = pd.read_excel('data.xls')
+
+# 2. 1973~2025년 데이터 추출
+df_filtered = df[(df['연도'] >= 1973) & (df['연도'] <= 2025)]
+
+# 1973년과 2025년 데이터가 모두 있는 지역 선정
+regions_1973 = set(df_filtered[df_filtered['연도'] == 1973]['지역명'])
+regions_2025 = set(df_filtered[df_filtered['연도'] == 2025]['지역명'])
+target_regions = list(regions_1973.intersection(regions_2025))
+
+# 3. 지역별 기온 변화량 계산
+result_list = []
+for region in target_regions:
+    t_1973 = df_filtered[(df_filtered['지역명'] == region) & (df_filtered['연도'] == 1973)]['평균기온'].values[0]
+    t_2025 = df_filtered[(df_filtered['지역명'] == region) & (df_filtered['연도'] == 2025)]['평균기온'].values[0]
+    
+    # 좌표 정보 가져오기
+    lat = df_filtered[df_filtered['지역명'] == region]['위도'].iloc[0]
+    lon = df_filtered[df_filtered['지역명'] == region]['경도'].iloc[0]
+    
+    temp_diff = t_2025 - t_1973
+    result_list.append({
+        '지역명': region,
+        '위도': lat,
+        '경도': lon,
+        '기온변화량': temp_diff
+    })
+
+res_df = pd.DataFrame(result_list)
+
+# 4. 색상 정규화 (변화량에 따라 연한 빨강 ~ 진한 빨강 매핑)
+norm = mcolors.Normalize(vmin=res_df['기온변화량'].min(), vmax=res_df['기온변화량'].max())
+cmap = plt.cm.Reds
+
+def get_color(val):
+    # RGBA -> HEX 변환 (Hex 형식으로 Folium에 적용)
+    rgba = cmap(norm(val))
+    return mcolors.to_hex(rgba)
+
+# 5. 지도 생성 및 마커 추가 (대한민국 중심 좌표 기준)
+m = folium.Map(location=[36.5, 127.5], zoom_start=7, tiles='cartodbpositron')
+
+for _, row in res_df.iterrows():
+    color_hex = get_color(row['기온변화량'])
+    
+    folium.CircleMarker(
+        location=[row['위도'], row['경도']],
+        radius=9,
+        popup=f"<b>{row['지역명']}</b><br>기온 변화량: +{row['기온변화량']:.2f}℃",
+        tooltip=f"{row['지역명']}: +{row['기온변화량']:.2f}℃",
+        color='#888888',       # 테두리 색상
+        weight=1,
+        fill=True,
+        fill_color=color_hex,  # 상승량에 따른 빨간색 농도
+        fill_opacity=0.85
+    ).add_to(m)
+
+# 6. HTML 파일로 저장
+m.save('temperature_change_map.html')

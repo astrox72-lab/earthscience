@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부력 & 알짜힘 물리학 시뮬레이터</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+        }
+
+        body {
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 25px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .content {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+
+        .value-badge {
+            color: #2563eb;
+            font-weight: 700;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #cbd5e1;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background-color: #2563eb;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* 캔버스 및 결과 화면 */
+        .simulation-view {
+            flex: 1.2;
+            min-width: 320px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        canvas {
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            background: #ffffff;
+        }
+
+        /* 결과 카드 대시보드 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+
+        .card {
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .card-gravity { background-color: #ef4444; }
+        .card-buoyancy { background-color: #3b82f6; }
+        .card-net { background-color: #10b981; }
+
+        .card h3 {
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+
+        .card p {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .formula-info {
+            margin-top: 15px;
+            padding: 12px;
+            background: #eff6ff;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #1e40af;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌊 부력 & 알짜힘 시뮬레이터</h1>
+    
+    <div class="content">
+        <!-- 슬라이더 컨트롤 -->
+        <div class="controls">
+            <div class="control-group">
+                <div class="control-label">
+                    <span>물체 잠긴 비율 (부피 비율)</span>
+                    <span class="value-badge" id="submergedVal">50 %</span>
+                </div>
+                <input type="range" id="submergedRatio" min="0" max="100" value="50">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>물체 밀도 (&rho;<sub>obj</sub>)</span>
+                    <span class="value-badge" id="objDensityVal">600 kg/m³</span>
+                </div>
+                <input type="range" id="objDensity" min="100" max="2000" step="50" value="600">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>유체(액체) 밀도 (&rho;<sub>fluid</sub>)</span>
+                    <span class="value-badge" id="fluidDensityVal">1000 kg/m³ (물)</span>
+                </div>
+                <input type="range" id="fluidDensity" min="500" max="1500" step="50" value="1000">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>물체 전체 부피 (V)</span>
+                    <span class="value-badge" id="volumeVal">1.0 m³</span>
+                </div>
+                <input type="range" id="totalVolume" min="0.2" max="3.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="btn-group">
+                <button id="btnEquilibrium">⚖️ 평형 상태 위치 찾기</button>
+            </div>
+
+            <div class="formula-info">
+                <strong>💡 주요 공식:</strong><br>
+                • <b>중력 (F<sub>g</sub>)</b> = &rho;<sub>obj</sub> × V × g<br>
+                • <b>부력 (F<sub>b</sub>)</b> = &rho;<sub>fluid</sub> × V<sub>잠긴부피</sub> × g<br>
+                • <b>알짜힘 (F<sub>net</sub>)</b> = 부력(↑) - 중력(↓)<br>
+                <small>* 중력가속도 g = 9.8 m/s² 적용</small>
+            </div>
+        </div>
+
+        <!-- 시뮬레이션 시각화 영역 -->
+        <div class="simulation-view">
+            <canvas id="simCanvas" width="450" height="380"></canvas>
+            
+            <div class="dashboard">
+                <div class="card card-gravity">
+                    <h3>중력 (F<sub>g</sub>) ↓</h3>
+                    <p id="fgText">0 N</p>
+                </div>
+                <div class="card card-buoyancy">
+                    <h3>부력 (F<sub>b</sub>) ↑</h3>
+                    <p id="fbText">0 N</p>
+                </div>
+                <div class="card card-net" id="netCard">
+                    <h3>알짜힘 (F<sub>net</sub>)</h3>
+                    <p id="fnetText">0 N</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 입력 요소
+    const subRatioInput = document.getElementById('submergedRatio');
+    const objDensityInput = document.getElementById('objDensity');
+    const fluidDensityInput = document.getElementById('fluidDensity');
+    const totalVolumeInput = document.getElementById('totalVolume');
+
+    // 텍스트 디스플레이 요소
+    const subVal = document.getElementById('submergedVal');
+    const objDenVal = document.getElementById('objDensityVal');
+    const fluidDenVal = document.getElementById('fluidDensityVal');
+    const volVal = document.getElementById('volumeVal');
+
+    const fgText = document.getElementById('fgText');
+    const fbText = document.getElementById('fbText');
+    const fnetText = document.getElementById('fnetText');
+    const netCard = document.getElementById('netCard');
+
+    const btnEquilibrium = document.getElementById('btnEquilibrium');
+
+    const g = 9.8; // 중력가속도
+
+    function updatePhysics() {
+        const subRatio = parseFloat(subRatioInput.value); // %
+        const rhoObj = parseFloat(objDensityInput.value); // kg/m^3
+        const rhoFluid = parseFloat(fluidDensityInput.value); // kg/m^3
+        const V = parseFloat(totalVolumeInput.value); // m^3
+
+        // 값 레이블 업데이트
+        subVal.textContent = `${subRatio} %`;
+        objDenVal.textContent = `${rhoObj} kg/m³`;
+        fluidDenVal.textContent = `${rhoFluid} kg/m³`;
+        volVal.textContent = `${V.toFixed(1)} m³`;
+
+        // 잠긴 부피 계산
+        const Vsub = V * (subRatio / 100);
+
+        // 힘 계산 (N)
+        const Fg = rhoObj * V * g;
+        const Fb = rhoFluid * Vsub * g;
+        const Fnet = Fb - Fg; // 위쪽을 + 방향으로 설정
+
+        // 결과 텍스트 업데이트
+        fgText.textContent = `${Fg.toFixed(1)} N`;
+        fbText.textContent = `${Fb.toFixed(1)} N`;
+
+        if (Math.abs(Fnet) < 0.1) {
+            fnetText.textContent = `0.0 N (평형)`;
+            netCard.style.backgroundColor = '#10b981'; // Green
+        } else if (Fnet > 0) {
+            fnetText.textContent = `↑ ${Math.abs(Fnet).toFixed(1)} N`;
+            netCard.style.backgroundColor = '#3b82f6'; // Blue (위쪽 힘)
+        } else {
+            fnetText.textContent = `↓ ${Math.abs(Fnet).toFixed(1)} N`;
+            netCard.style.backgroundColor = '#ef4444'; // Red (아래쪽 힘)
+        }
+
+        // 시각화 그리기
+        drawSimulation(subRatio, Fg, Fb, Fnet);
+    }
+
+    function drawSimulation(subRatio, Fg, Fb, Fnet) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const waterLevelY = 200; // 수면 높이
+        const blockWidth = 120;
+        const blockHeight = 140;
+        const blockX = (canvas.width - blockWidth) / 2;
+
+        // 잠긴 비율에 따른 물체 Y 위치 계산
+        const submergedPixelHeight = (subRatio / 100) * blockHeight;
+        const blockY = waterLevelY - (blockHeight - submergedPixelHeight);
+
+        // 1. 공기 / 하늘 배경
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(0, 0, canvas.width, waterLevelY);
+
+        // 2. 수조(물) 그리기
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+        ctx.fillRect(0, waterLevelY, canvas.width, canvas.height - waterLevelY);
+        
+        // 수면 선
+        ctx.beginPath();
+        ctx.moveTo(0, waterLevelY);
+        ctx.lineTo(canvas.width, waterLevelY);
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 3. 물체 그리기
+        ctx.fillStyle = '#d97706'; // 나무상자 느낌의 색상
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 2;
+        ctx.fillRect(blockX, blockY, blockWidth, blockHeight);
+        ctx.strokeRect(blockX, blockY, blockWidth, blockHeight);
+
+        // 물에 잠긴 부분 해시 패턴 또는 음영 표시
+        if (subRatio > 0) {
+            ctx.fillStyle = 'rgba(30, 58, 138, 0.2)';
+            const actualSubY = Math.max(blockY, waterLevelY);
+            const actualSubHeight = (blockY + blockHeight) - actualSubY;
+            ctx.fillRect(blockX, actualSubY, blockWidth, actualSubHeight);
+        }
+
+        // 중심점
+        const centerX = blockX + blockWidth / 2;
+        const centerY = blockY + blockHeight / 2;
+
+        // 힘 화살표 그리기 스케일링 (화살표가 너무 크거나 작지 않게 조절)
+        const maxForce = Math.max(Fg, Fb, Math.abs(Fnet), 100);
+        const maxArrowLength = 100; // 피셀 단위 최대 길이
+        const scale = maxArrowLength / maxForce;
+
+        // 중력 화살표 (아래쪽, 빨강)
+        drawArrow(centerX - 15, centerY, centerX - 15, centerY + Fg * scale, '#ef4444', 3);
+        
+        // 부력 화살표 (위쪽, 파랑)
+        drawArrow(centerX + 15, centerY, centerX + 15, centerY - Fb * scale, '#2563eb', 3);
+
+        // 알짜힘 화살표 (중앙 오른쪽, 보라/녹색)
+        if (Math.abs(Fnet) > 1) {
+            const netArrowColor = Fnet > 0 ? '#8b5cf6' : '#f59e0b';
+            drawArrow(centerX + blockWidth/2 + 25, centerY, centerX + blockWidth/2 + 25, centerY - Fnet * scale, netArrowColor, 4);
+            
+            // 알짜힘 라벨
+            ctx.fillStyle = netArrowColor;
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('알짜힘', centerX + blockWidth/2 + 35, centerY - (Fnet * scale) / 2);
+        }
+    }
+
+    // 화살표 그리기 함수
+    function drawArrow(fromx, fromy, tox, toy, color, lineWidth) {
+        const headlen = 10; // 화살표 머리 길이
+        const dx = tox - fromx;
+        const dy = toy - fromy;
+        const angle = Math.atan2(dy, dx);
+
+        if (Math.sqrt(dx*dx + dy*dy) < 3) return; // 길이가 너무 짧으면 생략
+
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = lineWidth;
+
+        // 선 그리기
+        ctx.beginPath();
+        ctx.moveTo(fromx, fromy);
+        ctx.lineTo(tox, toy);
+        ctx.stroke();
+
+        // 화살표 머리 그리기
+        ctx.beginPath();
+        ctx.moveTo(tox, toy);
+        ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // 평형 상태 찾기 버튼 핸들러
+    btnEquilibrium.addEventListener('click', () => {
+        const rhoObj = parseFloat(objDensityInput.value);
+        const rhoFluid = parseFloat(fluidDensityInput.value);
+
+        // 평형 조건: F_b = F_g => rho_fluid * V_sub = rho_obj * V
+        // => V_sub / V = rho_obj / rho_fluid
+        let reqRatio = (rhoObj / rhoFluid) * 100;
+
+        if (reqRatio > 100) {
+            alert('물체의 밀도가 액체보다 커서 완전히 가라앉습니다! (부유 불가)');
+            reqRatio = 100;
+        }
+
+        // 애니메이션 효과로 슬라이더 이동
+        let currentRatio = parseFloat(subRatioInput.value);
+        const step = (reqRatio - currentRatio) / 15;
+        let count = 0;
+
+        const anim = setInterval(() => {
+            currentRatio += step;
+            count++;
+            subRatioInput.value = currentRatio;
+            updatePhysics();
+
+            if (count >= 15) {
+                subRatioInput.value = reqRatio;
+                updatePhysics();
+                clearInterval(anim);
+            }
+        }, 20);
+    });
+
+    // 이벤트 리스너 등록
+    subRatioInput.addEventListener('input', updatePhysics);
+    objDensityInput.addEventListener('input', updatePhysics);
+    fluidDensityInput.addEventListener('input', updatePhysics);
+    totalVolumeInput.addEventListener('input', updatePhysics);
+
+    // 초기 실행
+    updatePhysics();
+</script>
+
+</body>
+</html>
